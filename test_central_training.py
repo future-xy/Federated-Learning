@@ -22,7 +22,7 @@ if __name__ == '__main__':
     # Load Boston dataset
     train_loader, test_loader = get_boston_dataset(device, 0.9, args.batch_size, args.test_batch_size)
 
-    model = Model()
+    model = Model().to(device)
     criterion = nn.MSELoss()
     optimizer = optim.SGD(model.parameters(), lr=args.lr)
 
