@@ -23,7 +23,7 @@ class FederatedLearning(metaclass=ABCMeta):
         """Execute FedAvg algorithm"""
         pass
 
-    def _client_update(self, model, client_dataset, lr, E):
+    def _client_update(self, client_id, model, lr, E):
         """Update the model on client"""
         pass
 
@@ -59,14 +59,14 @@ class SerialFL(FederatedLearning):
                     new_parameters[name] += parameter[name] * weights[idx]
         return new_parameters.copy()
 
-    def _client_update(self, model, client_dataset, lr, E):
+    def _client_update(self, client_id, model, lr, E):
         """Update the model on client"""
         optimizer = optim.SGD(model.parameters(), lr=lr)
         criterion = nn.MSELoss(reduction="sum")
         weight = 0
         losses = 0
         for e in range(E):
-            for data, target in client_dataset:
+            for data, target in self.clients_data[client_id]:
                 optimizer.zero_grad()
                 output = model(data).flatten()
                 loss = criterion(output, target)
@@ -87,18 +87,89 @@ class SerialFL(FederatedLearning):
 
     def global_update(self, state, lr, E=1):
         """Execute one round of serial global update"""
-        client_count = len(self.clients_data)
         parameters = []
         weights = []
         losses = 0
 
-        for i in range(client_count):
-            model, loss, data_count = self._client_update(self._send(state), self.clients_data[i], lr, E)
+        for i in range(self.client_count):
+            model, loss, data_count = self._client_update(i, self._send(state), lr, E)
             parameters.append(model.state_dict().copy())
             weights.append(data_count)
             losses += loss
 
-        return self._fed_avg(parameters, weights), losses / client_count
+        return self._fed_avg(parameters, weights), losses / self.client_count
+
+    def federated_data(self, dataset):
+        """Construct the federated dataset"""
+        if self.client_count > len(dataset):
+            return "ERROR"
+        self.clients_data = [[] for _ in range(self.client_count)]
+        for i, (data, target) in enumerate(dataset):
+            self.clients_data[i % self.client_count].append((data.to(self.device), target.to(self.device)))
+
+
+class ParallelFL(FederatedLearning):
+    def __init__(self, Model, device, client_count):
+        super(ParallelFL, self).__init__(Model, device, client_count)
+        self.Model = Model
+        self.device = device
+        self.client_count = client_count
+
+    def _fed_avg(self, clients_updates, weights):
+        """Execute FedAvg algorithm"""
+        with torch.no_grad():
+            new_parameters = clients_updates[0].copy()
+            weights = np.array(weights) / sum(weights)
+            for name in new_parameters:
+                new_parameters[name] = torch.zeros(new_parameters[name].shape).to(self.device)
+            for idx, parameter in enumerate(clients_updates):
+                for name in new_parameters:
+                    new_parameters[name] += parameter[name] * weights[idx]
+        return new_parameters.copy()
+
+    def _client_update(self, client_id, model, lr, E):
+        """Update the model on client"""
+        optimizer = optim.SGD(model.parameters(), lr=lr)
+        criterion = nn.MSELoss(reduction="sum")
+        weight = 0
+        losses = 0
+        for e in range(E):
+            for data, target in self.clients_data[client_id]:
+                optimizer.zero_grad()
+                output = model(data).flatten()
+                loss = criterion(output, target)
+                loss.backward()
+                # Record loss
+                losses += loss.item()
+                weight += len(data)
+                optimizer.step()
+        self.queue.put((model, losses / E / weight, weight / E))
+        return 0
+
+    def _send(self, state):
+        """Duplicate the central model to the client"""
+        model = self.Model().to(self.device)
+        with torch.no_grad():
+            for name, parameter in model.named_parameters():
+                parameter.data = state[name].clone()
+        return model
+
+    def global_update(self, state, lr, E=1):
+        """Execute one round of serial global update"""
+        parameters = []
+        weights = []
+        losses = 0
+
+        self.queue = mp.Queue()
+        mp.spawn(self._client_update, (self._send(state), lr, E), nprocs=self.client_count)
+
+        for i in range(self.client_count):
+            (model, loss, data_count) = self.queue.get()
+            parameters.append(model.state_dict().copy())
+            weights.append(data_count)
+            losses += loss
+
+        return self._fed_avg(parameters, weights), losses / self.client_count
 
     def federated_data(self, dataset):
         """Construct the federated dataset"""
