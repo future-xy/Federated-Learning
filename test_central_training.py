@@ -20,7 +20,7 @@ np.random.seed(args.seed)
 
 if __name__ == '__main__':
     # Load Boston dataset
-    train_loader, test_loader = get_boston_dataset(device, 0.9, args.batch_size, args.test_batch_size)
+    train_loader, test_loader = get_boston_dataset(0.9, args.batch_size, args.test_batch_size)
 
     model = Model().to(device)
     criterion = nn.MSELoss()
@@ -44,6 +44,6 @@ if __name__ == '__main__':
         record_train_loss.append(losses / len(train_loader))
     print("Evaluating...")
     criterion = nn.MSELoss(reduction="sum")
-    losses = eval(model, test_loader, criterion)
+    losses = eval(device, model, test_loader, criterion)
     print("Test loss: {}".format(losses / len(test_loader)))
-    np.save("Central training loss", record_train_loss)
+    # np.save("Central training loss", record_train_loss)

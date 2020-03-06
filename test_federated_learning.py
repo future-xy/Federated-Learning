@@ -27,7 +27,7 @@ from utils import *
 
 if __name__ == '__main__':
     # Load Boston dataset
-    train_loader, test_loader = get_boston_dataset(device, 0.9, args.batch_size, args.test_batch_size)
+    train_loader, test_loader = get_boston_dataset(0.9, args.batch_size, args.test_batch_size)
     # Construct the federated dataset
     clients_data = construct_federated_dataset(train_loader, args.client_count)
 
@@ -49,7 +49,7 @@ if __name__ == '__main__':
     model.load_state_dict(state.copy())
     print("Traing time: {}".format(time.time() - start))
     criterion = nn.MSELoss(reduction="sum")
-    loss = eval(model, test_loader, criterion)
+    loss = eval(device, model, test_loader, criterion)
     print("Loss on the test dataset: {}".format(loss))
     # np.save("Federated learning loss(E={})".format(args.E), record_loss)
 
@@ -67,5 +67,5 @@ if __name__ == '__main__':
     model.load_state_dict(state.copy())
     print("Traing time: {}".format(time.time() - start))
     criterion = nn.MSELoss(reduction="sum")
-    loss = eval(model, test_loader, criterion)
+    loss = eval(device, model, test_loader, criterion)
     print("Loss on the test dataset: {}".format(loss))
