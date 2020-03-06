@@ -36,5 +36,5 @@ def eval(device, model, datas, criterion):
     with torch.no_grad():
         for data, target in datas:
             output = model(data.to(device)).flatten()
-            losses += criterion(output.flatten(), target).item()
+            losses += criterion(output.flatten(), target.to(device)).item()
     return losses / len(datas.dataset)
