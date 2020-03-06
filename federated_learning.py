@@ -31,6 +31,8 @@ class FederatedLearning():
 
     def _client_update(self, model, client_dataset, lr, E):
         """Update the model on client"""
+        print("-------------------------------------------------------")
+        model=model.to(self.device)
         optimizer = optim.SGD(model.parameters(), lr=lr)
         criterion = nn.MSELoss(reduction="sum")
         weight = 0
@@ -45,14 +47,15 @@ class FederatedLearning():
                 losses += loss.item()
                 weight += len(data)
                 optimizer.step()
-        return model, losses / E / weight, weight / E
+        return model.cpu(), losses / E / weight, weight / E
 
     def _send(self, state):
         """Duplicate the central model to the client"""
-        model = self.Model().to(self.device)
+        model = self.Model()
         with torch.no_grad():
             for name, parameter in model.named_parameters():
                 parameter.data = state[name].clone()
+        print("s")
         return model
 
     def serial_global_update(self, clients_data, state, lr, E=1):
@@ -79,8 +82,9 @@ class FederatedLearning():
 
         pool = mp.Pool()
         results = []
-        for i in range(client_count):
-            results.append(pool.apply_async(self._client_update, (self._send(state), clients_data[i], lr, E)))
+        # for i in range(client_count):
+            # print(i)
+        results.append(pool.(self._client_update, (self._send(state), clients_data[i], lr, E)))
         pool.close()
         pool.join()
         for i in range(client_count):
