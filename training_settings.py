@@ -18,7 +18,7 @@ class Arguments():
         self.lr = 0.01
         self.seed = 0
         self.client_count = 10
-        self.E = 3
+        self.E = 1
 
 
 args = Arguments()
