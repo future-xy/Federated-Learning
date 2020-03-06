@@ -166,7 +166,8 @@ class ParallelFL(FederatedLearning):
         weights = []
         losses = 0
 
-        self.queue = mp.Queue()
+        self.manager = mp.Manager()
+        self.queue = self.manager.Queue()
         mp.spawn(self._client_update, (self._send(state), lr, E), nprocs=self.client_count)
 
         for i in range(self.client_count):
