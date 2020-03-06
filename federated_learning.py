@@ -8,8 +8,7 @@
 import torch
 import numpy as np
 from torch import optim, nn
-
-import multiprocessing as mp
+import torch.multiprocessing as mp
 
 
 class FederatedLearning():
