@@ -12,6 +12,7 @@ import torch.multiprocessing as mp
 
 from abc import ABCMeta, abstractmethod
 
+manager=mp.Manager()
 
 class FederatedLearning(metaclass=ABCMeta):
     @abstractmethod
@@ -114,6 +115,7 @@ class ParallelFL(FederatedLearning):
         self.Model = Model
         self.device = device
         self.client_count = client_count
+        self.queue = manager.Queue()
 
     def _fed_avg(self, clients_updates, weights):
         """Execute FedAvg algorithm"""
@@ -129,7 +131,7 @@ class ParallelFL(FederatedLearning):
 
     def _client_update(self, client_id, model, lr, E):
         """Update the model on client"""
-        print("Hi {}".format(client_id))
+        print(client_id)
         optimizer = optim.SGD(model.parameters(), lr=lr)
         criterion = nn.MSELoss(reduction="sum")
         weight = 0
@@ -140,6 +142,7 @@ class ParallelFL(FederatedLearning):
                 output = model(data).flatten()
                 loss = criterion(output, target)
                 loss.backward()
+                print(loss.item())
                 # Record loss
                 losses += loss.item()
                 weight += len(data)
@@ -163,12 +166,11 @@ class ParallelFL(FederatedLearning):
         weights = []
         losses = 0
 
-        self.manager = mp.Manager()
-        self.queue = self.manager.Queue()
+        # mp.spawn(self._client_update, args=(1, lr, E,), nprocs=self.client_count)
         mp.spawn(self._client_update, (self._send(state), lr, E), nprocs=self.client_count)
-
+        print("end")
         for i in range(self.client_count):
-            (state, loss, data_count) = self.queue.get()
+            (state, loss, data_count) = self.queue.get(timeout=1)
             parameters.append(state)
             weights.append(data_count)
             losses += loss
