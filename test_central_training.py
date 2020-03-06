@@ -32,7 +32,7 @@ if __name__ == '__main__':
         for idx, (data, target) in enumerate(train_loader):
             optimizer.zero_grad()
             output = model(data.to(device)).flatten()
-            loss = criterion(output, target)
+            loss = criterion(output, target.to(device))
             loss.backward()
             losses += loss.item()
             optimizer.step()
