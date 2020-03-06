@@ -9,6 +9,8 @@ import torch
 import numpy as np
 from torch import optim, nn
 
+import multiprocessing as mp
+
 
 class FederatedLearning():
 
@@ -44,11 +46,7 @@ class FederatedLearning():
                 losses += loss.item()
                 weight += len(data)
                 optimizer.step()
-        try:
-            return model, losses / E / weight, weight / E
-        except:
-            print(weight, losses, client_dataset)
-            return None
+        return model, losses / E / weight, weight / E
 
     def _send(self, state):
         """Duplicate the central model to the client"""
@@ -58,8 +56,8 @@ class FederatedLearning():
                 parameter.data = state[name].clone()
         return model
 
-    def global_update_single_process(self, clients_data, state, lr, E=1):
-        """Execute one round of global update (serially)"""
+    def serial_global_update(self, clients_data, state, lr, E=1):
+        """Execute one round of serial global update"""
         client_count = len(clients_data)
         parameters = []
         weights = []
@@ -71,4 +69,24 @@ class FederatedLearning():
             weights.append(data_count)
             losses += loss
 
+        return self._fed_avg(parameters, weights), losses / client_count
+
+    def parallel_global_update(self, clients_data, state, lr, E):
+        """Execute one round of parallel global update"""
+        client_count = len(clients_data)
+        parameters = []
+        weights = []
+        losses = 0
+
+        pool = mp.Pool()
+        results = []
+        for i in range(client_count):
+            results.append(pool.apply_async(self._client_update, (self._send(state), clients_data[i], lr, E)))
+        pool.close()
+        pool.join()
+        for i in range(client_count):
+            result = results[i].get()
+            parameters.append(result[0].state_dict().copy())
+            losses += result[1]
+            weights.append(result[2])
         return self._fed_avg(parameters, weights), losses / client_count

@@ -12,12 +12,11 @@ Note that this framework, so far, is only designed for scientific simulation abo
 ### Implemented
 
 - IID data partition. 
-- FedAvg (Single process)
+- FedAvg (Single and multi process)
 - Test Federated Linear Regression model on Boston dataset
 
 ### Ongoing
 
-- Multi-process FedAvg
 - Combination with DP
 - Combination with Secure MPC
 - Test more Federated model (YOLOv3 ...)
