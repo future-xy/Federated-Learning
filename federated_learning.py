@@ -129,6 +129,7 @@ class ParallelFL(FederatedLearning):
 
     def _client_update(self, client_id, model, lr, E):
         """Update the model on client"""
+        print("Hi {}".format(client_id))
         optimizer = optim.SGD(model.parameters(), lr=lr)
         criterion = nn.MSELoss(reduction="sum")
         weight = 0
@@ -143,8 +144,13 @@ class ParallelFL(FederatedLearning):
                 losses += loss.item()
                 weight += len(data)
                 optimizer.step()
-        self.queue.put((model, losses / E / weight, weight / E))
-        return 0
+        print("so far")
+        try:
+            self.queue.put((model.state_dict().copy(), losses / E / weight, weight / E))
+        except:
+            print((model, losses / E / weight, weight / E))
+        print("Byb {}".format(client_id))
+        # return 0
 
     def _send(self, state):
         """Duplicate the central model to the client"""
@@ -164,8 +170,8 @@ class ParallelFL(FederatedLearning):
         mp.spawn(self._client_update, (self._send(state), lr, E), nprocs=self.client_count)
 
         for i in range(self.client_count):
-            (model, loss, data_count) = self.queue.get()
-            parameters.append(model.state_dict().copy())
+            (state, loss, data_count) = self.queue.get()
+            parameters.append(state)
             weights.append(data_count)
             losses += loss
 
