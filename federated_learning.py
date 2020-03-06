@@ -12,7 +12,6 @@ import torch.multiprocessing as mp
 
 from abc import ABCMeta, abstractmethod
 
-manager=mp.Manager()
 
 class FederatedLearning(metaclass=ABCMeta):
     @abstractmethod
@@ -110,12 +109,12 @@ class SerialFL(FederatedLearning):
 
 
 class ParallelFL(FederatedLearning):
-    def __init__(self, Model, device, client_count):
+    def __init__(self, Model, device, client_count, manager):
         super(ParallelFL, self).__init__(Model, device, client_count)
         self.Model = Model
         self.device = device
         self.client_count = client_count
-        self.queue = manager.Queue()
+        self.queue = mp.Queue()
 
     def _fed_avg(self, clients_updates, weights):
         """Execute FedAvg algorithm"""
@@ -131,7 +130,7 @@ class ParallelFL(FederatedLearning):
 
     def _client_update(self, client_id, model, lr, E):
         """Update the model on client"""
-        print(client_id)
+        # print(client_id)
         optimizer = optim.SGD(model.parameters(), lr=lr)
         criterion = nn.MSELoss(reduction="sum")
         weight = 0
@@ -142,14 +141,14 @@ class ParallelFL(FederatedLearning):
                 output = model(data).flatten()
                 loss = criterion(output, target)
                 loss.backward()
-                print(loss.item())
+                # print(loss.item())
                 # Record loss
                 losses += loss.item()
                 weight += len(data)
                 optimizer.step()
-        print("so far")
+        # print("so far")
         self.queue.put((model.state_dict().copy(), losses / E / weight, weight / E))
-        print("Byb {}".format(client_id))
+        # print("Byb {}".format(client_id))
         # return 0
 
     def _send(self, state):
@@ -168,7 +167,7 @@ class ParallelFL(FederatedLearning):
 
         # mp.spawn(self._client_update, args=(1, lr, E,), nprocs=self.client_count)
         mp.spawn(self._client_update, (self._send(state), lr, E), nprocs=self.client_count)
-        print("end")
+        # print("end")
         for i in range(self.client_count):
             (state, loss, data_count) = self.queue.get(timeout=1)
             parameters.append(state)
