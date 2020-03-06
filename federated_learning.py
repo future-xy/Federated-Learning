@@ -145,10 +145,7 @@ class ParallelFL(FederatedLearning):
                 weight += len(data)
                 optimizer.step()
         print("so far")
-        try:
-            self.queue.put((model.state_dict().copy(), losses / E / weight, weight / E))
-        except:
-            print((model, losses / E / weight, weight / E))
+        self.queue.put((model.state_dict().copy(), losses / E / weight, weight / E))
         print("Byb {}".format(client_id))
         # return 0
 
