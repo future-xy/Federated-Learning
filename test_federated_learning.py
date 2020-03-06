@@ -16,6 +16,8 @@ when client's updates cost more time than creating process.
 """
 
 from torch import nn
+import torch.multiprocessing as mp
+
 import numpy as np
 import time
 
@@ -25,6 +27,8 @@ from federated_learning import SerialFL, ParallelFL
 from utils import *
 
 if __name__ == '__main__':
+    manager = mp.Manager()
+
     # Load Boston dataset
     train_loader, test_loader = get_boston_dataset(0.9, args.batch_size, args.test_batch_size)
 
@@ -34,7 +38,7 @@ if __name__ == '__main__':
     # Construct the SERIAL federated model
     FL = SerialFL(Model, device, args.client_count)
     FL.federated_data(train_loader)
-    
+
     # Compare single and multi process FL
     # Single process FL
     start = time.time()
@@ -54,7 +58,7 @@ if __name__ == '__main__':
     # np.save("Federated learning loss(E={})".format(args.E), record_loss)
 
     # Test multi-process FL
-    FL = ParallelFL(Model, device, args.client_count)
+    FL = ParallelFL(Model, device, args.client_count, manager)
     FL.federated_data(train_loader)
     start = time.time()
     model = Model().to(device)

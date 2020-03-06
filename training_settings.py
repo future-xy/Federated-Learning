@@ -17,7 +17,7 @@ class Arguments():
         self.epochs = 10
         self.lr = 0.01
         self.seed = 0
-        self.client_count = 5
+        self.client_count = 2
         self.E = 1
 
 
