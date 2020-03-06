@@ -39,7 +39,7 @@ class FederatedLearning():
             for data, target in client_dataset:
                 optimizer.zero_grad()
                 output = model(data.to(self.device)).flatten()
-                loss = criterion(output, target)
+                loss = criterion(output, target.to(self.device))
                 loss.backward()
                 # Record loss
                 losses += loss.item()
