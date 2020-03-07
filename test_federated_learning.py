@@ -57,8 +57,11 @@ if __name__ == '__main__':
     print("Loss on the test dataset: {}".format(loss))
     # np.save("Federated learning loss(E={})".format(args.E), record_loss)
 
+    torch.manual_seed(args.seed)
+    np.random.seed(args.seed)
     # Test multi-process FL
     FL = ParallelFL(Model, device, args.client_count, manager)
+    # FL=SerialFL(Model,device,args.client_count)
     FL.federated_data(train_loader)
     start = time.time()
     model = Model().to(device)

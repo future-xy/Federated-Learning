@@ -17,9 +17,9 @@ class Arguments():
         self.epochs = 10
         self.lr = 0.01
         self.seed = 0
-        self.client_count = 2
+        self.client_count = 10
         self.E = 1
 
 
 args = Arguments()
-device = torch.device("cuda:1") if torch.cuda.is_available() else torch.device("cpu")
+device = torch.device("cuda:2") if torch.cuda.is_available() else torch.device("cpu")
