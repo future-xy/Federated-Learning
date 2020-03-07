@@ -27,8 +27,6 @@ from federated_learning import SerialFL, ParallelFL
 from utils import *
 
 if __name__ == '__main__':
-    manager = mp.Manager()
-
     # Load Boston dataset
     train_loader, test_loader = get_boston_dataset(0.9, args.batch_size, args.test_batch_size)
 
@@ -60,7 +58,7 @@ if __name__ == '__main__':
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
     # Test multi-process FL
-    FL = ParallelFL(Model, device, args.client_count, manager)
+    FL = ParallelFL(Model, device, args.client_count)
     # FL=SerialFL(Model,device,args.client_count)
     FL.federated_data(train_loader)
     start = time.time()
