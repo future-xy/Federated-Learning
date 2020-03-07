@@ -139,10 +139,5 @@ class ParallelFL(FLBase):
     def global_update(self, state, lr, E=1):
         """Execute one round of serial global update"""
         self._send(state)
-        pool = mp.Pool()
-        for i in range(self.client_count):
-            pool.apply_async(self._client_update, (i, lr, E))
-        pool.close()
-        pool.join()
-        # mp.spawn(self._client_update, (lr, E), nprocs=self.client_count)
+        mp.spawn(self._client_update, (lr, E), nprocs=self.client_count)
         return self._fed_avg(), sum(self.losses) / self.client_count
