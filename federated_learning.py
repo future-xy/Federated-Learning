@@ -51,7 +51,6 @@ class FLBase(FederatedLearning):
         self.client_count = client_count
         self.models = [Model().to(self.device) for _ in range(self.client_count)]
 
-
     def _fed_avg(self):
         """Execute FedAvg algorithm"""
         self.weights = np.array(self.weights) / sum(self.weights)
@@ -112,7 +111,6 @@ class SerialFL(FLBase):
             self.weights[client_id] = weight / E
             self.losses[client_id] = losses / E / weight
 
-
     def global_update(self, state, lr, E=1):
         """Execute one round of serial global update"""
         self._send(state)
@@ -122,13 +120,13 @@ class SerialFL(FLBase):
 
 
 class ParallelFL(FLBase):
-    def __init__(self, Model, device, client_count,manager):
+    def __init__(self, Model, device, client_count, manager):
         super(ParallelFL, self).__init__(Model, device, client_count)
         self.Model = Model
         self.device = device
         self.client_count = client_count
         self.models = [Model().to(self.device) for _ in range(self.client_count)]
-        self.queue=manager.Queue()
+        self.queue = manager.Queue()
 
     def _send(self, state):
         """Duplicate the central model to the client"""
@@ -138,12 +136,12 @@ class ParallelFL(FLBase):
                     parameter.data = state[name].clone()
         self.weights = [0] * self.client_count
         self.losses = [0] * self.client_count
- 
+
     def _recv(self):
         for _ in range(self.client_count):
-            (i,weight,loss)=self.queue.get()
-            self.weights[i]=weight
-            self.losses[i]=loss
+            (i, weight, loss) = self.queue.get()
+            self.weights[i] = weight
+            self.losses[i] = loss
 
     def _client_update(self, client_id, lr, E):
         """Update the model on client"""
@@ -163,8 +161,7 @@ class ParallelFL(FLBase):
                 weight += len(data)
                 optimizer.step()
         with torch.no_grad():
-            self.queue.put((client_id,weight/E,losses/E/weight))
-
+            self.queue.put((client_id, weight / E, losses / E / weight))
 
     def global_update(self, state, lr, E=1):
         """Execute one round of serial global update"""

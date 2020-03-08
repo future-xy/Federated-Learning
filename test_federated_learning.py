@@ -57,9 +57,9 @@ if __name__ == '__main__':
 
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
-    manager=mp.Manager()
+    manager = mp.Manager()
     # Test multi-process FL
-    FL = ParallelFL(Model, device, args.client_count,manager)
+    FL = ParallelFL(Model, device, args.client_count, manager)
     # FL=SerialFL(Model,device,args.client_count)
     FL.federated_data(train_loader)
     start = time.time()

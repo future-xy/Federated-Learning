@@ -9,6 +9,16 @@ I combined FL with Linear Regression, Deep Neural Network, and Convolutional Neu
 
 Note that this framework, so far, is only designed for scientific simulation about FL. In the future, a practical FL framework may be implemented. 
 
+### Multi-process
+
+To accelerate the simulation, a multi-process version FL is implemented. Due to the enormous time cost to create and destroy subprocesses, this model should only be used when training time is much more than the spawn cost and the number of client is not too much. 
+
+The interfaces are unified in both serial and parallel FL model. Therefore, you may test both models for a few epochs and decide which is suitable in your scenario.
+
+### Dataloader
+
+Federated data storage now is relative inefficient. When training on large dataset, out of memory error may occur. I am working on it to optimize the dataloader. 
+
 ### Implemented
 
 - IID data partition. 
