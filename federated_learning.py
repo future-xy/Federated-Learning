@@ -51,26 +51,6 @@ class FLBase(FederatedLearning):
         self.client_count = client_count
         self.models = [Model().to(self.device) for _ in range(self.client_count)]
 
-    def _client_update(self, client_id, lr, E):
-        """Update the model on client"""
-        model = self.models[client_id]
-        optimizer = optim.SGD(model.parameters(), lr=lr)
-        criterion = nn.MSELoss(reduction="sum")
-        weight = 0
-        losses = 0
-        for e in range(E):
-            for data, target in self.clients_data[client_id]:
-                optimizer.zero_grad()
-                output = model(data).flatten()
-                loss = criterion(output, target)
-                loss.backward()
-                # Record loss
-                losses += loss.item()
-                weight += len(data)
-                optimizer.step()
-        with torch.no_grad():
-            self.weights[client_id] = weight / E
-            self.losses[client_id] = losses / E / weight
 
     def _fed_avg(self):
         """Execute FedAvg algorithm"""
@@ -111,6 +91,28 @@ class SerialFL(FLBase):
         self.weights = [0] * self.client_count
         self.losses = [0] * self.client_count
 
+    def _client_update(self, client_id, lr, E):
+        """Update the model on client"""
+        model = self.models[client_id]
+        optimizer = optim.SGD(model.parameters(), lr=lr)
+        criterion = nn.MSELoss(reduction="sum")
+        weight = 0
+        losses = 0
+        for e in range(E):
+            for data, target in self.clients_data[client_id]:
+                optimizer.zero_grad()
+                output = model(data).flatten()
+                loss = criterion(output, target)
+                loss.backward()
+                # Record loss
+                losses += loss.item()
+                weight += len(data)
+                optimizer.step()
+        with torch.no_grad():
+            self.weights[client_id] = weight / E
+            self.losses[client_id] = losses / E / weight
+
+
     def global_update(self, state, lr, E=1):
         """Execute one round of serial global update"""
         self._send(state)
@@ -120,12 +122,13 @@ class SerialFL(FLBase):
 
 
 class ParallelFL(FLBase):
-    def __init__(self, Model, device, client_count):
+    def __init__(self, Model, device, client_count,manager):
         super(ParallelFL, self).__init__(Model, device, client_count)
         self.Model = Model
         self.device = device
         self.client_count = client_count
         self.models = [Model().to(self.device) for _ in range(self.client_count)]
+        self.queue=manager.Queue()
 
     def _send(self, state):
         """Duplicate the central model to the client"""
@@ -133,11 +136,39 @@ class ParallelFL(FLBase):
             with torch.no_grad():
                 for name, parameter in model.named_parameters():
                     parameter.data = state[name].clone()
-        # self.weights = mp.Array(c_float, self.client_count)
-        # self.losses = mp.Array(c_float, self.client_count)
+        self.weights = [0] * self.client_count
+        self.losses = [0] * self.client_count
+ 
+    def _recv(self):
+        for _ in range(self.client_count):
+            (i,weight,loss)=self.queue.get()
+            self.weights[i]=weight
+            self.losses[i]=loss
+
+    def _client_update(self, client_id, lr, E):
+        """Update the model on client"""
+        model = self.models[client_id]
+        optimizer = optim.SGD(model.parameters(), lr=lr)
+        criterion = nn.MSELoss(reduction="sum")
+        weight = 0
+        losses = 0
+        for e in range(E):
+            for data, target in self.clients_data[client_id]:
+                optimizer.zero_grad()
+                output = model(data).flatten()
+                loss = criterion(output, target)
+                loss.backward()
+                # Record loss
+                losses += loss.item()
+                weight += len(data)
+                optimizer.step()
+        with torch.no_grad():
+            self.queue.put((client_id,weight/E,losses/E/weight))
+
 
     def global_update(self, state, lr, E=1):
         """Execute one round of serial global update"""
         self._send(state)
         mp.spawn(self._client_update, (lr, E), nprocs=self.client_count)
+        self._recv()
         return self._fed_avg(), sum(self.losses) / self.client_count
