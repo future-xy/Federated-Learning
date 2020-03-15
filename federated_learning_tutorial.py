@@ -25,7 +25,7 @@ from sklearn.datasets import load_boston
 
 from tests.models import Model
 from tests.settings import device, args
-from FLsim.federated_learning import SerialFL, ParallelFL
+from FLsim.federated_learning import SerialFedAvg, ParallelFedAvg
 from tests.utils import *
 
 
@@ -34,7 +34,7 @@ def single_process(train_data, test_loader):
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
     # Construct the SERIAL federated model
-    FL = SerialFL(Model, device, args.client_count)
+    FL = SerialFedAvg(Model, device, args.client_count)
     """
     A list of client id, whose length equals to training data count, 
     should be given, which means the owner of each data.
@@ -71,7 +71,7 @@ def multi_process(train_data, test_loader):
     np.random.seed(args.seed)
     """manager is required"""
     manager = mp.Manager()
-    FL = ParallelFL(Model, device, args.client_count, manager)
+    FL = ParallelFedAvg(Model, device, args.client_count, manager)
     """
     A list of client id, whose length equals to training data count, 
     should be given, which means the owner of each data.

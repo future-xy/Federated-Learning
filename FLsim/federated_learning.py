@@ -74,9 +74,9 @@ class FLBase(FederatedLearning):
             for client_id in range(self.client_count)]
 
 
-class SerialFL(FLBase):
+class SerialFedAvg(FLBase):
     def __init__(self, Model, device, client_count):
-        super(SerialFL, self).__init__(Model, device, client_count)
+        super(SerialFedAvg, self).__init__(Model, device, client_count)
         self.Model = Model
         self.device = device
         self.client_count = client_count
@@ -121,9 +121,9 @@ class SerialFL(FLBase):
         return self._fed_avg(), sum(self.losses) / self.client_count
 
 
-class ParallelFL(FLBase):
+class ParallelFedAvg(FLBase):
     def __init__(self, Model, device, client_count, manager):
-        super(ParallelFL, self).__init__(Model, device, client_count)
+        super(ParallelFedAvg, self).__init__(Model, device, client_count)
         self.Model = Model
         self.device = device
         self.client_count = client_count
@@ -172,3 +172,9 @@ class ParallelFL(FLBase):
         mp.spawn(self._client_update, (lr, E), nprocs=self.client_count)
         self._recv()
         return self._fed_avg(), sum(self.losses) / self.client_count
+
+
+class FL_LocalDP(FederatedLearning):
+    def __init__(self):
+        super(FL_LocalDP, self).__init__()
+        pass
