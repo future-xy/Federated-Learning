@@ -15,15 +15,35 @@ To accelerate the simulation, a multi-process version FL is implemented. Due to 
 
 The interfaces are unified in both serial and parallel FL model. Therefore, you may test both models for a few epochs and decide which is suitable in your scenario.
 
-### Dataloader
+### Dataset
 
-Federated data storage now is relative inefficient. When training on large dataset, out of memory error may occur. I am working on it to optimize the dataloader. 
+An efficient federated dataset has been built in FLsim.federated_data. Generally, it's no need to know how it works. 
+
+To construct the federated data, you need to pass a dataset whose type is *torch.utils.data.Dataset*, i.e., your custom dataset inherited from *Dataset*.
+
+~~~python
+from torch.utils.data import TensorDataset
+train_data = TensorDataset(X, y)
+~~~
+
+Besides, you need to state the data owner for each data and the client id should in the range of $[0,\,client count)$, like below.
+
+~~~
+clients = [i % client_count for i in range(len(train_data))]
+~~~
+
+This function will partition the data to clients as claimed in *clients*
+
+~~~
+FL = SerialFL(Model, device, client_count)
+FL.federated_data(train_data, clients, batch_size)
+~~~
 
 ### Implemented
 
-- IID data partition. 
+- Federated dataset 
 - FedAvg (Single and multi process)
-- Test Federated Linear Regression model on Boston dataset
+- Federated Linear Regression model on Boston dataset
 
 ### Ongoing
 
@@ -32,3 +52,5 @@ Federated data storage now is relative inefficient. When training on large datas
 - Test more Federated model (YOLOv3 ...)
 
 ##### Any suggestions or bug reports are welcome!
+
+##### Appreciate for your STAR! 😘

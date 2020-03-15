@@ -9,9 +9,10 @@ import torch
 import numpy as np
 from torch import optim, nn
 import torch.multiprocessing as mp
+from torch.utils.data import DataLoader
 
 from abc import ABCMeta, abstractmethod
-from ctypes import c_int, c_float
+from FLsim.federated_data import FederatedDataset
 
 
 class FederatedLearning(metaclass=ABCMeta):
@@ -36,7 +37,7 @@ class FederatedLearning(metaclass=ABCMeta):
         """Execute one round of serial global update"""
         pass
 
-    def federated_data(self, dataset):
+    def federated_data(self, dataset, clients, batch_size):
         """Construct the federated dataset"""
         pass
 
@@ -64,13 +65,13 @@ class FLBase(FederatedLearning):
                     new_parameters[name] += parameter[name] * self.weights[idx]
         return new_parameters.copy()
 
-    def federated_data(self, dataset):
+    def federated_data(self, dataset, clients, batch_size):
         """Construct the federated dataset"""
         if self.client_count > len(dataset):
             return "ERROR"
-        self.clients_data = [[] for _ in range(self.client_count)]
-        for i, (data, target) in enumerate(dataset):
-            self.clients_data[i % self.client_count].append((data.to(self.device), target.to(self.device)))
+        self.client_dataloader = [
+            DataLoader(FederatedDataset(dataset, clients, client_id), batch_size=batch_size, shuffle=True)
+            for client_id in range(self.client_count)]
 
 
 class SerialFL(FLBase):
@@ -95,10 +96,11 @@ class SerialFL(FLBase):
         model = self.models[client_id]
         optimizer = optim.SGD(model.parameters(), lr=lr)
         criterion = nn.MSELoss(reduction="sum")
+        dataloader = self.client_dataloader[client_id]
         weight = 0
         losses = 0
         for e in range(E):
-            for data, target in self.clients_data[client_id]:
+            for data, target in dataloader:
                 optimizer.zero_grad()
                 output = model(data).flatten()
                 loss = criterion(output, target)
@@ -148,10 +150,11 @@ class ParallelFL(FLBase):
         model = self.models[client_id]
         optimizer = optim.SGD(model.parameters(), lr=lr)
         criterion = nn.MSELoss(reduction="sum")
+        dataloader = self.client_dataloader[client_id]
         weight = 0
         losses = 0
         for e in range(E):
-            for data, target in self.clients_data[client_id]:
+            for data, target in dataloader:
                 optimizer.zero_grad()
                 output = model(data).flatten()
                 loss = criterion(output, target)

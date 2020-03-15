@@ -12,12 +12,12 @@ import torch
 
 class Arguments():
     def __init__(self):
-        self.batch_size = 10
+        self.batch_size = 5
         self.test_batch_size = 16
         self.epochs = 10
         self.lr = 0.01
         self.seed = 0
-        self.client_count = 10
+        self.client_count = 50
         self.E = 1
 
 
