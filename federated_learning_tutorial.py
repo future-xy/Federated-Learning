@@ -13,6 +13,11 @@ is slower then single process.
 
 Multi-process FL, however, is useful in complex model,
 when client's updates cost more time than creating process.
+
+Though we implemented the multi-process FL, due to the dumplication of dataset, 
+it's still impractical to use multi-process when the number of clients is to large.
+
+Because of the concurrent execution, the result of multi-process FL may vary. 
 """
 
 from torch import nn
@@ -105,8 +110,8 @@ if __name__ == '__main__':
     # Normalize
     X = (X - X.mean(axis=0, keepdims=True)) / X.std(axis=0, keepdims=True)
     # Convert Numpy array to Torch tensor
-    X = torch.from_numpy(X).type(torch.float)
-    y = torch.from_numpy(y).type(torch.float)
+    X = torch.from_numpy(X).type(torch.float).to(device)
+    y = torch.from_numpy(y).type(torch.float).to(device)
     training_data_count = 500
     """You need to construct a dataset whose type is torch.utils.data.Dataset"""
     train_data = TensorDataset(X[:training_data_count], y[:training_data_count])
@@ -115,3 +120,4 @@ if __name__ == '__main__':
 
     # Compare single and multi process FL
     single_process(train_data, test_loader)
+    multi_process(train_data,test_loader)
