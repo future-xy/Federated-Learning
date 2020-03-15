@@ -2,7 +2,7 @@
 /.idea
 *.png
 plot.py
-/__pycache__
+__pycache__
 /data
 /test_mp.py
 /test_dataset.py
