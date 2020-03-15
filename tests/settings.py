@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Name    : training_settings.py
+# Name    : settings.py
 # Time    : 3/5/2020 3:58 PM
 # Author  : Fu Yao
 # Mail    : fy38607203@163.com

@@ -8,12 +8,11 @@
 """Training on the Boston dataset"""
 
 import numpy as np
-import torch
 from torch import nn, optim
 
-from model import Model
-from training_settings import args, device
-from utils import *
+from tests.models import Model
+from tests.settings import args, device
+from tests.utils import *
 
 torch.manual_seed(args.seed)
 np.random.seed(args.seed)

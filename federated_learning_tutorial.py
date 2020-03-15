@@ -6,11 +6,10 @@
 # Mail    : fy38607203@163.com
 
 """
-This code is to verify the multi-process FL and compare
-the multi-process training time with single process.
+This file is to show how to use this framework in general ML scenarios.
 
-Because this model is super simple, multi-process FL is slower
-then single process.
+Because this model (Linear Regression) is super simple, multi-process FL
+is slower then single process.
 
 Multi-process FL, however, is useful in complex model,
 when client's updates cost more time than creating process.
@@ -24,10 +23,10 @@ import numpy as np
 import time
 from sklearn.datasets import load_boston
 
-from model import Model
-from training_settings import device, args
+from tests.models import Model
+from tests.settings import device, args
 from FLsim.federated_learning import SerialFL, ParallelFL
-from utils import *
+from tests.utils import *
 
 
 def single_process(train_data, test_loader):
