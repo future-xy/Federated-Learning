@@ -28,7 +28,7 @@ import numpy as np
 import time
 from sklearn.datasets import load_boston
 
-from tests.models import Model
+from tests.models import BostonLR
 from tests.settings import device, args
 from FLsim.federated_learning import SerialFedAvg, ParallelFedAvg
 from tests.utils import *
@@ -39,7 +39,7 @@ def single_process(train_data, test_loader):
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
     # Construct the SERIAL federated model
-    FL = SerialFedAvg(Model, device, args.client_count)
+    FL = SerialFedAvg(BostonLR, device, args.client_count)
     """
     A list of client id, whose length equals to training data count, 
     should be given, which means the owner of each data.
@@ -55,7 +55,7 @@ def single_process(train_data, test_loader):
     # Single process FL
     start = time.time()
     record_loss = []
-    model = Model().to(device)
+    model = BostonLR().to(device)
     state = model.state_dict().copy()
     for epoch in range(args.epochs):
         state, loss = FL.global_update(state, lr=args.lr, E=args.E)
@@ -76,7 +76,7 @@ def multi_process(train_data, test_loader):
     np.random.seed(args.seed)
     """manager is required"""
     manager = mp.Manager()
-    FL = ParallelFedAvg(Model, device, args.client_count, manager)
+    FL = ParallelFedAvg(BostonLR, device, args.client_count, manager)
     """
     A list of client id, whose length equals to training data count, 
     should be given, which means the owner of each data.
@@ -89,7 +89,7 @@ def multi_process(train_data, test_loader):
     FL.federated_data(train_data, clients, args.batch_size)
     # Start
     start = time.time()
-    model = Model().to(device)
+    model = BostonLR().to(device)
     state = model.state_dict().copy()
     for epoch in range(args.epochs):
         state, loss = FL.global_update(state, args.lr, args.E)

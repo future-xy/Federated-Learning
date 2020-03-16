@@ -10,7 +10,7 @@
 import numpy as np
 from torch import nn, optim
 
-from tests.models import Model
+from tests.models import BostonLR
 from tests.settings import args, device
 from tests.utils import *
 
@@ -21,7 +21,7 @@ if __name__ == '__main__':
     # Load Boston dataset
     train_loader, test_loader = get_boston_dataset(0.9, args.batch_size, args.test_batch_size)
 
-    model = Model().to(device)
+    model = BostonLR().to(device)
     criterion = nn.MSELoss()
     optimizer = optim.SGD(model.parameters(), lr=args.lr)
 
