@@ -196,5 +196,9 @@ class FedSGD_LocalDP(FLBase):
             self.weights[client_id] = weight / E
             self.losses[client_id] = losses / E / weight
 
+    def _recv(self):
+        for client in range(self.client_count):
+            self.models[client].state_dict()
+
     def global_update(self, state, lr, E):
         self._send(state)
