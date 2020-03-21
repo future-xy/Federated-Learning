@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Name    : federated_learning_tutorial.py
+# Name    : FedAvg_tutorial.py
 # Time    : 2020/3/3 13:55
 # Author  : Fu Yao
 # Mail    : fy38607203@163.com

@@ -174,7 +174,7 @@ class ParallelFedAvg(FLBase):
         return self._fed_avg(), sum(self.losses) / self.client_count
 
 
-class FL_LocalDP(FederatedLearning):
+class FedSGD_LocalDP(FederatedLearning):
     def __init__(self):
-        super(FL_LocalDP, self).__init__()
+        super(FedSGD_LocalDP, self).__init__()
         pass
