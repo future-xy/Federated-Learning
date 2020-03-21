@@ -104,6 +104,7 @@ class SerialFedAvg(FLBase):
         losses = 0
         for e in range(E):
             for data, target in dataloader:
+                data,target=data.to(self.device),target.to(self.device)
                 optimizer.zero_grad()
                 output = model(data)
                 loss = criterion(output, target)
@@ -160,6 +161,7 @@ class ParallelFedAvg(FLBase):
         losses = 0
         for e in range(E):
             for data, target in dataloader:
+                data,target=data.to(self.device),target.to(self.device)
                 optimizer.zero_grad()
                 output = model(data)
                 loss = criterion(output, target)
