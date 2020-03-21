@@ -55,10 +55,11 @@ def central():
 def FedAvg():
     """This part is FedAvg model"""
     args.epochs = 5
+    args.lr = 0.1
     trans = [transforms.ToTensor(),
              transforms.Lambda(lambda x: x.reshape(-1))]
     train_set = datasets.MNIST(root="./data", train=True, transform=transforms.Compose(trans), download=True)
-    FL = SerialFedAvg(MnistDNN, device, args.client_count)
+    FL = SerialFedAvg(MnistDNN, device, args.client_count, optim.SGD, nn.CrossEntropyLoss)
     # IID dataset
     clients = [i % args.client_count for i in range(len(train_set))]
     FL.federated_data(train_set, clients, args.batch_size)

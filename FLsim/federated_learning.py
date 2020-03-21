@@ -7,7 +7,6 @@
 
 import torch
 import numpy as np
-from torch import optim, nn
 import torch.multiprocessing as mp
 from torch.utils.data import DataLoader
 
@@ -17,7 +16,7 @@ from FLsim.federated_data import FederatedDataset
 
 class FederatedLearning(metaclass=ABCMeta):
     @abstractmethod
-    def __init__(self, Model, device, client_count):
+    def __init__(self, Model, device, client_count, optimizer, criterion):
         """init"""
         pass
 
@@ -45,12 +44,14 @@ class FederatedLearning(metaclass=ABCMeta):
 class FLBase(FederatedLearning):
     """This class is the base of FL and should not be used"""
 
-    def __init__(self, Model, device, client_count):
-        super(FLBase, self).__init__(Model, device, client_count)
+    def __init__(self, Model, device, client_count, optimizer, criterion):
+        super(FLBase, self).__init__(Model, device, client_count, optimizer, criterion)
         self.Model = Model
         self.device = device
         self.client_count = client_count
         self.models = [Model().to(self.device) for _ in range(self.client_count)]
+        self.optimizer = optimizer
+        self.criterion = criterion
 
     def _fed_avg(self):
         """Execute FedAvg algorithm"""
@@ -75,12 +76,14 @@ class FLBase(FederatedLearning):
 
 
 class SerialFedAvg(FLBase):
-    def __init__(self, Model, device, client_count):
-        super(SerialFedAvg, self).__init__(Model, device, client_count)
+    def __init__(self, Model, device, client_count, optimizer, criterion):
+        super(SerialFedAvg, self).__init__(Model, device, client_count, optimizer, criterion)
         self.Model = Model
         self.device = device
         self.client_count = client_count
         self.models = [Model().to(self.device) for _ in range(self.client_count)]
+        self.optimizer = optimizer
+        self.criterion = criterion
 
     def _send(self, state):
         """Duplicate the central model to the client"""
@@ -94,15 +97,15 @@ class SerialFedAvg(FLBase):
     def _client_update(self, client_id, lr, E):
         """Update the model on client"""
         model = self.models[client_id]
-        optimizer = optim.SGD(model.parameters(), lr=lr)
-        criterion = nn.MSELoss(reduction="sum")
+        optimizer = self.optimizer(model.parameters(), lr=lr)
+        criterion = self.criterion(reduction="sum")
         dataloader = self.client_dataloader[client_id]
         weight = 0
         losses = 0
         for e in range(E):
             for data, target in dataloader:
                 optimizer.zero_grad()
-                output = model(data).flatten()
+                output = model(data)
                 loss = criterion(output, target)
                 loss.backward()
                 # Record loss
@@ -122,13 +125,15 @@ class SerialFedAvg(FLBase):
 
 
 class ParallelFedAvg(FLBase):
-    def __init__(self, Model, device, client_count, manager):
-        super(ParallelFedAvg, self).__init__(Model, device, client_count)
+    def __init__(self, Model, device, client_count, optimizer, criterion, manager):
+        super(ParallelFedAvg, self).__init__(Model, device, client_count, optimizer, criterion)
         self.Model = Model
         self.device = device
         self.client_count = client_count
         self.models = [Model().to(self.device) for _ in range(self.client_count)]
         self.queue = manager.Queue()
+        self.criterion = criterion
+        self.optimizer = optimizer
 
     def _send(self, state):
         """Duplicate the central model to the client"""
@@ -148,15 +153,15 @@ class ParallelFedAvg(FLBase):
     def _client_update(self, client_id, lr, E):
         """Update the model on client"""
         model = self.models[client_id]
-        optimizer = optim.SGD(model.parameters(), lr=lr)
-        criterion = nn.MSELoss(reduction="sum")
+        optimizer = self.optimizer(model.parameters(), lr=lr)
+        criterion = self.criterion(reduction="sum")
         dataloader = self.client_dataloader[client_id]
         weight = 0
         losses = 0
         for e in range(E):
             for data, target in dataloader:
                 optimizer.zero_grad()
-                output = model(data).flatten()
+                output = model(data)
                 loss = criterion(output, target)
                 loss.backward()
                 # Record loss
