@@ -53,6 +53,15 @@ class FLBase(FederatedLearning):
         self.optimizer = optimizer
         self.criterion = criterion
 
+    def _send(self, state):
+        """Duplicate the central model to the client"""
+        for model in self.models:
+            with torch.no_grad():
+                for name, parameter in model.named_parameters():
+                    parameter.data = state[name].clone()
+        self.weights = [0] * self.client_count
+        self.losses = [0] * self.client_count
+
     def _fed_avg(self):
         """Execute FedAvg algorithm"""
         self.weights = np.array(self.weights) / sum(self.weights)
@@ -78,21 +87,6 @@ class FLBase(FederatedLearning):
 class SerialFedAvg(FLBase):
     def __init__(self, Model, device, client_count, optimizer, criterion):
         super(SerialFedAvg, self).__init__(Model, device, client_count, optimizer, criterion)
-        self.Model = Model
-        self.device = device
-        self.client_count = client_count
-        self.models = [Model().to(self.device) for _ in range(self.client_count)]
-        self.optimizer = optimizer
-        self.criterion = criterion
-
-    def _send(self, state):
-        """Duplicate the central model to the client"""
-        for model in self.models:
-            with torch.no_grad():
-                for name, parameter in model.named_parameters():
-                    parameter.data = state[name].clone()
-        self.weights = [0] * self.client_count
-        self.losses = [0] * self.client_count
 
     def _client_update(self, client_id, lr, E):
         """Update the model on client"""
@@ -104,7 +98,7 @@ class SerialFedAvg(FLBase):
         losses = 0
         for e in range(E):
             for data, target in dataloader:
-                data,target=data.to(self.device),target.to(self.device)
+                data, target = data.to(self.device), target.to(self.device)
                 optimizer.zero_grad()
                 output = model(data)
                 loss = criterion(output, target)
@@ -128,22 +122,16 @@ class SerialFedAvg(FLBase):
 class ParallelFedAvg(FLBase):
     def __init__(self, Model, device, client_count, optimizer, criterion, manager):
         super(ParallelFedAvg, self).__init__(Model, device, client_count, optimizer, criterion)
-        self.Model = Model
-        self.device = device
-        self.client_count = client_count
-        self.models = [Model().to(self.device) for _ in range(self.client_count)]
         self.queue = manager.Queue()
-        self.criterion = criterion
-        self.optimizer = optimizer
 
-    def _send(self, state):
-        """Duplicate the central model to the client"""
-        for model in self.models:
-            with torch.no_grad():
-                for name, parameter in model.named_parameters():
-                    parameter.data = state[name].clone()
-        self.weights = [0] * self.client_count
-        self.losses = [0] * self.client_count
+    # def _send(self, state):
+    #     """Duplicate the central model to the client"""
+    #     for model in self.models:
+    #         with torch.no_grad():
+    #             for name, parameter in model.named_parameters():
+    #                 parameter.data = state[name].clone()
+    #     self.weights = [0] * self.client_count
+    #     self.losses = [0] * self.client_count
 
     def _recv(self):
         for _ in range(self.client_count):
@@ -161,7 +149,7 @@ class ParallelFedAvg(FLBase):
         losses = 0
         for e in range(E):
             for data, target in dataloader:
-                data,target=data.to(self.device),target.to(self.device)
+                data, target = data.to(self.device), target.to(self.device)
                 optimizer.zero_grad()
                 output = model(data)
                 loss = criterion(output, target)
@@ -181,7 +169,32 @@ class ParallelFedAvg(FLBase):
         return self._fed_avg(), sum(self.losses) / self.client_count
 
 
-class FedSGD_LocalDP(FederatedLearning):
-    def __init__(self):
-        super(FedSGD_LocalDP, self).__init__()
-        pass
+class FedSGD_LocalDP(FLBase):
+    def __init__(self, Model, device, client_count, optimizer, criterion, DP_noise, clip=None):
+        super(FedSGD_LocalDP, self).__init__(Model, device, client_count, optimizer, criterion)
+        self.func = DP_noise
+        self.clip = clip
+
+    def _client_update(self, client_id, lr, E):
+        """Update the model on client"""
+        model = self.models[client_id]
+        criterion = self.criterion(reduction="sum")
+        dataloader = self.client_dataloader[client_id]
+        weight = 0
+        losses = 0
+        for e in range(E):
+            for data, target in dataloader:
+                data, target = data.to(self.device), target.to(self.device)
+                # optimizer.zero_grad()
+                output = model(data)
+                loss = criterion(output, target)
+                loss.backward()
+                # Record loss
+                losses += loss.item()
+                weight += len(data)
+        with torch.no_grad():
+            self.weights[client_id] = weight / E
+            self.losses[client_id] = losses / E / weight
+
+    def global_update(self, state, lr, E):
+        self._send(state)

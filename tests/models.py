@@ -19,7 +19,7 @@ class BostonLR(nn.Module):
         self.fc1 = nn.Linear(13, 1)
 
     def forward(self, x):
-        return self.fc1(x)
+        return self.fc1(x).flatten()
 
 
 class MnistDNN(nn.Module):

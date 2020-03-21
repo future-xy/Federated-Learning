@@ -20,7 +20,7 @@ it's still impractical to use multi-process when the number of clients is to lar
 Because of the concurrent execution, the result of multi-process FL may vary. 
 """
 
-from torch import nn
+from torch import nn, optim
 import torch.multiprocessing as mp
 from torch.utils.data import DataLoader, TensorDataset
 
@@ -39,7 +39,7 @@ def single_process(train_data, test_loader):
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
     # Construct the SERIAL federated model
-    FL = SerialFedAvg(BostonLR, device, args.client_count)
+    FL = SerialFedAvg(BostonLR, device, args.client_count, optim.SGD, nn.MSELoss)
     """
     A list of client id, whose length equals to training data count, 
     should be given, which means the owner of each data.
@@ -76,7 +76,7 @@ def multi_process(train_data, test_loader):
     np.random.seed(args.seed)
     """manager is required"""
     manager = mp.Manager()
-    FL = ParallelFedAvg(BostonLR, device, args.client_count, manager)
+    FL = ParallelFedAvg(BostonLR, device, args.client_count, optim.SGD, nn.MSELoss, manager)
     """
     A list of client id, whose length equals to training data count, 
     should be given, which means the owner of each data.
@@ -120,4 +120,4 @@ if __name__ == '__main__':
 
     # Compare single and multi process FL
     single_process(train_data, test_loader)
-    multi_process(train_data,test_loader)
+    multi_process(train_data, test_loader)
