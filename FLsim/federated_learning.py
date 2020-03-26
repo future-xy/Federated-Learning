@@ -196,18 +196,20 @@ class FedSGD_LocalDP(FLBase):
                 if para.requires_grad:
                     if self.clip is not None:
                         para.grad /= max(1, torch.norm(para.grad, 2) / self.clip)
-                    para.grad += torch.from_numpy( self.DP_noise(size=para.shape)).to(self.device)
+                    para.grad += torch.from_numpy(self.DP_noise(size=para.shape)).to(self.device)
                 print(para.grad)
 
     def _recv(self):
         self.weights = np.array(self.weights) / sum(self.weights)
         with torch.no_grad():
+            grads = {}
             for name, para in self.global_model.named_parameters():
-                grad = torch.zeros(size=para.shape).to(self.device)
-                for id, client in enumerate(self.models):
-                    print(client.state_dict()[name].grad)
-                    grad += client.state_dict()[name].grad * self.weights[id]
-                para.grad = grad
+                grads[name] = torch.zeros(para.grad.shape).to(self.device)
+            for id, client in enumerate(self.models):
+                for name, para in client.named_parameters():
+                    grads[name] += para.grad * self.weights[id]
+            for name, para in self.global_model.named_parameters():
+                para.grad = grads[name]
 
     def global_update(self, state, lr, E):
         self._send(state)
