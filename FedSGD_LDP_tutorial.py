@@ -101,4 +101,5 @@ def LDP():
 
 if __name__ == '__main__':
     # central()
-    FedAvg()
+    # FedAvg()
+    LDP()
