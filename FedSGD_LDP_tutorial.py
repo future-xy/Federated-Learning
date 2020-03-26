@@ -15,10 +15,11 @@ from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
 
 import numpy as np
+import scipy.stats as sts
 
 from tests.models import MnistDNN
 from tests.settings import args, device
-from FLsim.federated_learning import SerialFedAvg
+from FLsim.federated_learning import SerialFedAvg, FedSGD_LocalDP
 
 torch.manual_seed(args.seed)
 np.random.seed(args.seed)
@@ -65,6 +66,31 @@ def FedAvg():
     FL.federated_data(train_set, clients, args.batch_size)
 
     print("FedAvg")
+    model = MnistDNN().to(device)
+    state = model.state_dict().copy()
+    for epoch in range(args.epochs):
+        state, loss = FL.global_update(state, lr=args.lr, E=args.E)
+        print("Epoch {}\tLoss: {}".format(epoch, loss))
+    model.load_state_dict(state.copy())
+
+
+def LDP():
+    """This part is Local Differential Privacy (LDP)"""
+    args.epochs = 5
+    args.lr = .01
+    trans = [transforms.ToTensor(),
+             transforms.Lambda(lambda x: x.reshape(-1))]
+    train_set = datasets.MNIST(root="./data", train=True, transform=transforms.Compose(trans), download=True)
+    """Define how to generate DP noise here"""
+    # We follow this paper: https://arxiv.org/abs/1906.09679
+    b = 2 * args.Xi * args.epochs / (20 * args.epsilon)
+    DP_noise = sts.laplace(scale=b).rvs
+    FL = FedSGD_LocalDP(MnistDNN, device, args.client_count, optim.SGD, nn.CrossEntropyLoss, DP_noise)
+    # IID dataset
+    clients = [i % args.client_count for i in range(len(train_set))]
+    FL.federated_data(train_set, clients, args.batch_size)
+
+    print("FedSGD with LDP")
     model = MnistDNN().to(device)
     state = model.state_dict().copy()
     for epoch in range(args.epochs):
