@@ -56,9 +56,7 @@ class FLBase(FederatedLearning):
     def _send(self, state):
         """Duplicate the central model to the client"""
         for model in self.models:
-            with torch.no_grad():
-                for name, parameter in model.named_parameters():
-                    parameter.data = state[name].clone()
+            model.load_state_dict(state.copy())
         self.weights = [0] * self.client_count
         self.losses = [0] * self.client_count
 
@@ -70,9 +68,9 @@ class FLBase(FederatedLearning):
             new_parameters = clients_updates[0].copy()
             for name in new_parameters:
                 new_parameters[name] = torch.zeros(new_parameters[name].shape).to(self.device)
-            for idx, parameter in enumerate(clients_updates):
+            for client_id, parameter in enumerate(clients_updates):
                 for name in new_parameters:
-                    new_parameters[name] += parameter[name] * self.weights[idx]
+                    new_parameters[name] += parameter[name] * self.weights[client_id]
         return new_parameters.copy()
 
     def federated_data(self, dataset, clients, batch_size):
@@ -107,9 +105,8 @@ class SerialFedAvg(FLBase):
                 losses += loss.item()
                 weight += len(data)
                 optimizer.step()
-        with torch.no_grad():
-            self.weights[client_id] = weight / E
-            self.losses[client_id] = losses / E / weight
+        self.weights[client_id] = weight / E
+        self.losses[client_id] = losses / E / weight
 
     def global_update(self, state, lr, E=1):
         """Execute one round of serial global update"""
@@ -135,9 +132,9 @@ class ParallelFedAvg(FLBase):
 
     def _recv(self):
         for _ in range(self.client_count):
-            (i, weight, loss) = self.queue.get()
-            self.weights[i] = weight
-            self.losses[i] = loss
+            (client_id, weight, loss) = self.queue.get()
+            self.weights[client_id] = weight
+            self.losses[client_id] = loss
 
     def _client_update(self, client_id, lr, E):
         """Update the model on client"""
@@ -172,8 +169,9 @@ class ParallelFedAvg(FLBase):
 class FedSGD_LocalDP(FLBase):
     def __init__(self, Model, device, client_count, optimizer, criterion, DP_noise, clip=None):
         super(FedSGD_LocalDP, self).__init__(Model, device, client_count, optimizer, criterion)
-        self.func = DP_noise
+        self.DP_noise = DP_noise
         self.clip = clip
+        self.global_model = Model().to(device)
 
     def _client_update(self, client_id, lr, E):
         """Update the model on client"""
@@ -182,23 +180,40 @@ class FedSGD_LocalDP(FLBase):
         dataloader = self.client_dataloader[client_id]
         weight = 0
         losses = 0
-        for e in range(E):
-            for data, target in dataloader:
-                data, target = data.to(self.device), target.to(self.device)
-                # optimizer.zero_grad()
-                output = model(data)
-                loss = criterion(output, target)
-                loss.backward()
-                # Record loss
-                losses += loss.item()
-                weight += len(data)
+        for data, target in dataloader:
+            data, target = data.to(self.device), target.to(self.device)
+            output = model(data)
+            loss = criterion(output, target)
+            loss.backward()
+            # Record loss
+            losses += loss.item()
+            weight += len(data)
+        self.weights[client_id] = weight / E
+        self.losses[client_id] = losses / E / weight
+        # Add Differential Privacy noise here
         with torch.no_grad():
-            self.weights[client_id] = weight / E
-            self.losses[client_id] = losses / E / weight
+            for para in model.parameters():
+                if para.requires_grad:
+                    if self.clip is not None:
+                        para.grad /= max(1, torch.norm(para.grad, 2) / self.clip)
+                    para.grad += self.DP_noise(size=para.shape)
 
     def _recv(self):
-        for client in range(self.client_count):
-            self.models[client].state_dict()
+        self.weights = np.array(self.weights) / sum(self.weights)
+        with torch.no_grad():
+            for name, para in self.global_model.named_parameters():
+                grad = torch.zeros(size=para.shape).to(self.device)
+                for id, client in enumerate(self.models):
+                    grad += client.state_dict()[name].grad * self.weights[id]
+                para.grad = grad
 
     def global_update(self, state, lr, E):
         self._send(state)
+        self.global_model.load_state_dict(state.copy())
+        global_optimizer = self.optimizer(self.global_model.parameters(), lr=lr)
+        global_optimizer.zero_grad()
+        for i in range(self.client_count):
+            self._client_update(i, lr, E)
+        self._recv()
+        global_optimizer.step()
+        return self.global_model.state_dict(), sum(self.losses) / self.client_count
